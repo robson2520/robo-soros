@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robô Deriv — Soros Pro</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --panel: #0f1729;
+    --border: #1e2d50;
+    --accent: #00d4ff;
+    --green: #00ff88;
+    --red: #ff3366;
+    --yellow: #ffd700;
+    --text: #c8d8f0;
+    --dim: #4a6080;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    background-image: radial-gradient(ellipse at 20% 20%, #0a1f3a 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 80%, #0a0e1a 0%, transparent 60%);
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(15,23,41,0.9);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .logo span { color: var(--green); }
+
+  .status-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--dim);
+    color: var(--dim);
+    transition: all 0.3s;
+  }
+
+  .status-badge.connected { border-color: var(--green); color: var(--green); animation: pulse 2s infinite; }
+  .status-badge.running { border-color: var(--accent); color: var(--accent); animation: pulse 1s infinite; }
+  .status-badge.error { border-color: var(--red); color: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    font-family: 'Share Tech Mono', monospace;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+
+  .field { margin-bottom: 14px; }
+
+  label {
+    display: block;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  input, select {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type="password"] { letter-spacing: 3px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  .btn-connect {
+    background: linear-gradient(135deg, #0050a0, #0080d0);
+    color: #fff;
+  }
+
+  .btn-start {
+    background: linear-gradient(135deg, #006640, #00cc66);
+    color: #fff;
+    margin-top: 10px;
+    display: none;
+  }
+
+  .btn-stop {
+    background: linear-gradient(135deg, #800030, #cc0044);
+    color: #fff;
+    margin-top: 10px;
+    display: none;
+  }
+
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .btn:active { transform: translateY(0); }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-transform: uppercase;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .stat-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 4px;
+    color: var(--text);
+  }
+
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.accent { color: var(--accent); }
+
+  /* Soros indicator */
+  .soros-display {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .soros-step {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+    transition: all 0.3s;
+  }
+
+  .soros-step.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .soros-step.win { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .soros-step.loss { background: var(--red); }
+
+  /* Log */
+  .log-area {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    height: 320px;
+    overflow-y: auto;
+    padding: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  .log-area::-webkit-scrollbar { width: 4px; }
+  .log-area::-webkit-scrollbar-track { background: transparent; }
+  .log-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-entry { border-bottom: 1px solid rgba(255,255,255,0.04); padding: 2px 0; }
+  .log-time { color: var(--dim); }
+  .log-win { color: var(--green); }
+  .log-loss { color: var(--red); }
+  .log-info { color: var(--accent); }
+  .log-warn { color: var(--yellow); }
+
+  /* Indicadores */
+  .indicators-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .ind-badge {
+    flex: 1;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .ind-badge .ind-name {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .ind-badge .ind-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    margin-top: 3px;
+    color: var(--text);
+  }
+
+  .ind-badge.bull { border-color: var(--green); }
+  .ind-badge.bear { border-color: var(--red); }
+  .ind-badge.neutral { border-color: var(--dim); }
+
+  /* Right column layout */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 10px;
+  }
+
+  .info-box {
+    background: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    line-height: 1.8;
+  }
+
+  .tag-demo {
+    display: inline-block;
+    background: rgba(255,215,0,0.1);
+    border: 1px solid var(--yellow);
+    color: var(--yellow);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 2px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  @media (max-width: 900px) {
+    .container { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ROBÔ<span>SOROS</span>·PRO</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="accountType" class="tag-demo" style="display:none;">DEMO</span>
+    <div class="status-badge" id="statusBadge">⬤ DESCONECTADO</div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- LEFT: Config -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <div class="panel">
+      <div class="panel-title">⚙ Configuração</div>
+
+      <div class="field">
+        <label>Login Deriv</label>
+        <div id="loginStatus" style="background:rgba(0,0,0,0.3);border:1px solid #1e2d50;border-radius:8px;padding:10px 12px;font-family:'Share Tech Mono',monospace;font-size:13px;color:#4a6080;">
+          Não conectado
+        </div>
+      </div>
+      <button class="btn btn-connect" id="oauthBtn" onclick="loginOAuth()" style="background:linear-gradient(135deg,#8B0000,#cc0000);margin-bottom:6px;">
+        🔐 Login com Deriv
+      </button>
+
+      <div class="row2">
+        <div class="field">
+          <label>Ativo</label>
+          <select id="assetSelect">
+            <option value="R_10">Volatility 10 (1s)</option>
+            <option value="R_25">Volatility 25 (1s)</option>
+            <option value="R_50">Volatility 50 (1s)</option>
+            <option value="R_75">Volatility 75 (1s)</option>
+            <option value="R_100">Volatility 100 (1s)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Timeframe</label>
+          <select id="tfSelect">
+            <option value="5">5 segundos</option>
+            <option value="10">10 segundos</option>
+            <option value="60" selected>1 minuto</option>
+            <option value="120">2 minutos</option>
+            <option value="300">5 minutos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Banca Inicial (R$)</label>
+          <input type="number" id="bancaInput" value="100" min="10" step="1" />
+        </div>
+        <div class="field">
+          <label>% por Ciclo Soros</label>
+          <input type="number" id="pctInput" value="5" min="1" max="20" step="0.5" />
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>MM Curta (sinal)</label>
+          <input type="number" id="mm1Input" value="9" min="3" max="50" />
+        </div>
+        <div class="field">
+          <label>MM Longa (tendência)</label>
+          <input type="number" id="mm2Input" value="21" min="5" max="200" />
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>ADX Mínimo</label>
+          <input type="number" id="adxMin" value="25" min="10" max="50" />
+        </div>
+        <div class="field">
+          <label>Payout Mínimo (%)</label>
+          <input type="number" id="payoutMin" value="85" min="70" max="99" />
+        </div>
+      </div>
+
+
+      <button class="btn btn-start" id="startBtn" onclick="startBot()">▶ INICIAR ROBÔ</button>
+      <button class="btn btn-stop" id="stopBtn" onclick="stopBot()">⏹ PARAR ROBÔ</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📊 Soros — Nível 3</div>
+      <div class="soros-display">
+        <div class="soros-step" id="s1"></div>
+        <div class="soros-step" id="s2"></div>
+        <div class="soros-step" id="s3"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;">
+        <div>
+          <div style="font-size:10px;color:var(--dim);font-family:'Share Tech Mono',monospace;">NÍVEL 1</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:13px;margin-top:3px;" id="sorosV1">R$ —</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--dim);font-family:'Share Tech Mono',monospace;">NÍVEL 2</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:13px;margin-top:3px;" id="sorosV2">R$ —</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--dim);font-family:'Share Tech Mono',monospace;">NÍVEL 3</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:13px;margin-top:3px;" id="sorosV3">R$ —</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:var(--dim);font-family:'Share Tech Mono',monospace;">ENTRADA ATUAL</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:18px;color:var(--yellow);" id="entradaAtual">R$ —</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Dashboard -->
+  <div class="right-col">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Banca</div>
+        <div class="stat-value accent" id="statBanca">R$ —</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Lucro Dia</div>
+        <div class="stat-value" id="statLucro">R$ 0,00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Retorno</div>
+        <div class="stat-value" id="statRetorno">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gains</div>
+        <div class="stat-value green" id="statGains">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Losses</div>
+        <div class="stat-value red" id="statLosses">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ciclos ✅</div>
+        <div class="stat-value yellow" id="statCiclos">0</div>
+      </div>
+    </div>
+
+    <!-- Indicadores -->
+    <div class="panel" style="padding:16px;">
+      <div class="section-label">Indicadores em Tempo Real</div>
+      <div class="indicators-row">
+        <div class="ind-badge neutral" id="indMM1">
+          <div class="ind-name">MM9</div>
+          <div class="ind-val" id="mm1Val">—</div>
+        </div>
+        <div class="ind-badge neutral" id="indMM2">
+          <div class="ind-name">MM21</div>
+          <div class="ind-val" id="mm2Val">—</div>
+        </div>
+        <div class="ind-badge neutral" id="indADX">
+          <div class="ind-name">ADX</div>
+          <div class="ind-val" id="adxVal">—</div>
+        </div>
+        <div class="ind-badge neutral" id="indTend">
+          <div class="ind-name">TENDÊNCIA</div>
+          <div class="ind-val" id="tendVal">—</div>
+        </div>
+        <div class="ind-badge neutral" id="indPayout">
+          <div class="ind-name">PAYOUT</div>
+          <div class="ind-val" id="payoutVal">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="panel" style="flex:1;">
+      <div class="panel-title">📋 Log de Operações</div>
+      <div class="log-area" id="logArea">
+        <div class="log-entry log-info">[ Sistema ] Robô Soros Pro iniciado. Configure e conecte para começar.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let ws = null;
+let isRunning = false;
+let banca = 100;
+let bancaInicial = 100;
+let sorosNivel = 1;
+let sorosEntrada1 = 0;
+let lucroAcumuladoCiclo = 0;
+let gains = 0;
+let losses = 0;
+let ciclosCompletos = 0;
+let lucroTotal = 0;
+let closes = [];
+let highs = [];
+let lows = [];
+let esperandoVela = false;
+let ultimaSinalVela = null;
+let aguardandoResposta = false;
+let payout = 0;
+let contractId = null;
+let pendingDirection = null;
+let reqIdCounter = 1;
+let isDemo = true;
+
+// ============================================================
+// UTILS
+// ============================================================
+function now() {
+  return new Date().toLocaleTimeString('pt-BR');
+}
+
+function fmtBRL(v) {
+  return 'R$ ' + Math.abs(v).toFixed(2).replace('.', ',');
+}
+
+function log(msg, type='info') {
+  const area = document.getElementById('logArea');
+  const d = document.createElement('div');
+  d.className = `log-entry log-${type}`;
+  d.innerHTML = `<span class="log-time">[${now()}]</span> ${msg}`;
+  area.appendChild(d);
+  area.scrollTop = area.scrollHeight;
+}
+
+function updateStats() {
+  const lucro = banca - bancaInicial;
+  const ret = ((banca / bancaInicial) - 1) * 100;
+  document.getElementById('statBanca').textContent = fmtBRL(banca);
+  document.getElementById('statLucro').textContent = (lucro >= 0 ? '+' : '-') + fmtBRL(lucro);
+  document.getElementById('statLucro').className = 'stat-value ' + (lucro >= 0 ? 'green' : 'red');
+  document.getElementById('statRetorno').textContent = (ret >= 0 ? '+' : '') + ret.toFixed(1) + '%';
+  document.getElementById('statRetorno').className = 'stat-value ' + (ret >= 0 ? 'green' : 'red');
+  document.getElementById('statGains').textContent = gains;
+  document.getElementById('statLosses').textContent = losses;
+  document.getElementById('statCiclos').textContent = ciclosCompletos;
+}
+
+function updateSoros() {
+  const pct = parseFloat(document.getElementById('pctInput').value) / 100;
+  const e1 = parseFloat((banca * pct).toFixed(2));
+  const lucro1 = parseFloat((e1 * 0.8).toFixed(2));
+  const e2 = parseFloat((e1 + lucro1).toFixed(2));
+  const lucro2 = parseFloat((e2 * 0.8).toFixed(2));
+  const e3 = parseFloat((e2 + lucro2).toFixed(2));
+
+  document.getElementById('sorosV1').textContent = fmtBRL(e1);
+  document.getElementById('sorosV2').textContent = fmtBRL(e2);
+  document.getElementById('sorosV3').textContent = fmtBRL(e3);
+
+  ['s1','s2','s3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'soros-step';
+    if (i + 1 < sorosNivel) el.classList.add('win');
+    else if (i + 1 === sorosNivel) el.classList.add('active');
+  });
+
+  let entrada;
+  if (sorosNivel === 1) entrada = e1;
+  else if (sorosNivel === 2) entrada = e2;
+  else entrada = e3;
+
+  document.getElementById('entradaAtual').textContent = fmtBRL(entrada);
+  return { e1, e2, e3, entrada };
+}
+
+// ============================================================
+// INDICATORS
+// ============================================================
+function calcSMA(arr, period) {
+  if (arr.length < period) return null;
+  const slice = arr.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / period;
+}
+
+function calcADX(highs, lows, closes, period = 14) {
+  if (closes.length < period + 1) return { adx: null, diPlus: null, diMinus: null };
+  const trueRanges = [];
+  const dmPlus = [];
+  const dmMinus = [];
+  for (let i = 1; i < closes.length; i++) {
+    const h = highs[i], l = lows[i], pc = closes[i - 1];
+    trueRanges.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+    const upMove = h - highs[i - 1];
+    const downMove = lows[i - 1] - l;
+    dmPlus.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    dmMinus.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+  const smoothTR = dmPlus.slice(0, period).reduce((a,b) => a+b, 0);
+  const smoothDP = dmPlus.slice(0, period).reduce((a,b) => a+b, 0);
+  const smoothDM = dmMinus.slice(0, period).reduce((a,b) => a+b, 0);
+  let atr = trueRanges.slice(0, period).reduce((a,b) => a+b, 0);
+  let dip = dmPlus.slice(0, period).reduce((a,b) => a+b, 0);
+  let dim = dmMinus.slice(0, period).reduce((a,b) => a+b, 0);
+  const dxArr = [];
+  for (let i = period; i < trueRanges.length; i++) {
+    atr = atr - atr / period + trueRanges[i];
+    dip = dip - dip / period + dmPlus[i];
+    dim = dim - dim / period + dmMinus[i];
+    const diP = atr > 0 ? (dip / atr) * 100 : 0;
+    const diM = atr > 0 ? (dim / atr) * 100 : 0;
+    const dx = (diP + diM) > 0 ? (Math.abs(diP - diM) / (diP + diM)) * 100 : 0;
+    dxArr.push({ dx, diP, diM });
+  }
+  if (dxArr.length < period) return { adx: null, diPlus: null, diMinus: null };
+  const adxVal = dxArr.slice(-period).reduce((a,b) => a + b.dx, 0) / period;
+  const last = dxArr[dxArr.length - 1];
+  return { adx: adxVal, diPlus: last.diP, diMinus: last.diM };
+}
+
+function analyzeSignal() {
+  const mm1p = parseInt(document.getElementById('mm1Input').value);
+  const mm2p = parseInt(document.getElementById('mm2Input').value);
+  const adxMin = parseFloat(document.getElementById('adxMin').value);
+  if (closes.length < mm2p + 2) return null;
+  const mm1 = calcSMA(closes, mm1p);
+  const mm2 = calcSMA(closes, mm2p);
+  const adxData = calcADX(highs, lows, closes, 14);
+  const price = closes[closes.length - 1];
+  const prevPrice = closes[closes.length - 2];
+  const prevMM1 = calcSMA(closes.slice(0, -1), mm1p);
+
+  // Update UI
+  if (mm1) document.getElementById('mm1Val').textContent = mm1.toFixed(5);
+  if (mm2) document.getElementById('mm2Val').textContent = mm2.toFixed(5);
+
+  if (adxData.adx !== null) {
+    document.getElementById('adxVal').textContent = adxData.adx.toFixed(1);
+    const adxBadge = document.getElementById('indADX');
+    adxBadge.className = 'ind-badge ' + (adxData.adx >= adxMin ? 'bull' : 'neutral');
+  }
+
+  if (mm1 && mm2) {
+    const tendencia = mm1 > mm2 ? '▲ ALTA' : '▼ BAIXA';
+    document.getElementById('tendVal').textContent = tendencia;
+    document.getElementById('indTend').className = 'ind-badge ' + (mm1 > mm2 ? 'bull' : 'bear');
+  }
+
+  // Signal logic
+  if (!mm1 || !mm2 || !prevMM1 || adxData.adx === null) return null;
+  if (adxData.adx < adxMin) return null;
+
+  const tendenciaAlta = mm1 > mm2 && adxData.diPlus > adxData.diMinus;
+  const tendenciaBaixa = mm1 < mm2 && adxData.diMinus > adxData.diPlus;
+
+  // Rompimento MM curta
+  const rompeuParaCima = prevPrice < prevMM1 && price > mm1;
+  const rompeuParaBaixo = prevPrice > prevMM1 && price < mm1;
+
+  if (rompeuParaCima && tendenciaAlta) return 'CALL';
+  if (rompeuParaBaixo && tendenciaBaixa) return 'PUT';
+  return null;
+}
+
+// ============================================================
+// DERIV API
+// ============================================================
+const APP_ID = '339Zb1NiFIDyuLdJy03z6';
+const REDIRECT_URI = window.location.href.split('?')[0].split('#')[0];
+
+function loginOAuth() {
+  const url = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=EN&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+  log('🔐 Abrindo login da Deriv...', 'info');
+  window.location.href = url;
+}
+
+function checkOAuthToken() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token1');
+  const acct = params.get('acct1');
+  if (token) {
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    document.getElementById('loginStatus').textContent = '✅ Logado: ' + (acct || 'demo');
+    document.getElementById('loginStatus').style.color = '#00ff88';
+    document.getElementById('loginStatus').style.borderColor = '#00ff88';
+    document.getElementById('oauthBtn').style.display = 'none';
+    log('✅ Token OAuth recebido! Conectando...', 'win');
+    connectDeriv(token);
+  }
+}
+
+function connectDeriv(token) {
+  if (!token) { log('❌ Faça login primeiro!', 'warn'); return; }
+
+  bancaInicial = parseFloat(document.getElementById('bancaInput').value);
+  banca = bancaInicial;
+  updateStats();
+  updateSoros();
+  document.getElementById('statBanca').textContent = fmtBRL(banca);
+
+  log('Conectando à Deriv...', 'info');
+  ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}&l=EN&brand=deriv`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ authorize: token }));
+    document.getElementById('statusBadge').textContent = '⬤ AUTORIZANDO';
+    document.getElementById('statusBadge').className = 'status-badge connected';
+  };
+
+  ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+
+  ws.onerror = () => {
+    log('❌ Erro de conexão!', 'warn');
+    document.getElementById('statusBadge').textContent = '⬤ ERRO';
+    document.getElementById('statusBadge').className = 'status-badge error';
+  };
+
+  ws.onclose = () => {
+    log('Conexão encerrada.', 'info');
+    isRunning = false;
+    document.getElementById('statusBadge').textContent = '⬤ DESCONECTADO';
+    document.getElementById('statusBadge').className = 'status-badge';
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'none';
+  };
+}
+
+function sendWS(obj) {
+  if (ws && ws.readyState === 1) {
+    obj.req_id = reqIdCounter++;
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+function handleMessage(data) {
+  if (data.error) {
+    log('⚠ Erro Deriv: ' + data.error.message + ' (código: ' + data.error.code + ')', 'warn');
+    log('🔍 Detalhes: ' + JSON.stringify(data.error), 'warn');
+    return;
+  }
+
+  if (data.msg_type === 'authorize') {
+    const acc = data.authorize;
+    isDemo = acc.is_virtual === 1;
+    const accountType = isDemo ? 'DEMO' : 'REAL';
+    document.getElementById('accountType').textContent = accountType;
+    document.getElementById('accountType').style.display = 'inline-block';
+    banca = parseFloat(acc.balance);
+    bancaInicial = banca;
+    document.getElementById('bancaInput').value = banca.toFixed(2);
+    updateStats();
+    log(`✅ Conectado! Conta ${accountType} — Saldo: ${fmtBRL(banca)}`, 'win');
+    document.getElementById('statusBadge').textContent = '⬤ CONECTADO';
+    document.getElementById('connectBtn').style.display = 'none';
+    document.getElementById('startBtn').style.display = 'block';
+    updateSoros();
+  }
+
+  if (data.msg_type === 'balance') {
+    banca = parseFloat(data.balance.balance);
+    updateStats();
+    updateSoros();
+  }
+
+  if (data.msg_type === 'candles') {
+    const candles = data.candles;
+    closes = candles.map(c => parseFloat(c.close));
+    highs = candles.map(c => parseFloat(c.high));
+    lows = candles.map(c => parseFloat(c.low));
+    log(`📊 ${candles.length} velas carregadas. Monitorando...`, 'info');
+    subscribeCandles();
+  }
+
+  if (data.msg_type === 'ohlc') {
+    const c = data.ohlc;
+    // Update last candle
+    if (closes.length > 0) closes[closes.length - 1] = parseFloat(c.close);
+    if (highs.length > 0) highs[highs.length - 1] = Math.max(highs[highs.length - 1], parseFloat(c.high));
+    if (lows.length > 0) lows[lows.length - 1] = Math.min(lows[lows.length - 1], parseFloat(c.low));
+
+    if (!isRunning || aguardandoResposta) return;
+
+    // New candle = push
+    const signal = analyzeSignal();
+    if (signal && signal !== ultimaSinalVela) {
+      ultimaSinalVela = signal;
+      executar(signal);
+    }
+  }
+
+  if (data.msg_type === 'tick_stream') {
+    // New tick, push close
+    const tick = data.tick;
+    if (isRunning) {
+      if (closes.length > 0) closes[closes.length - 1] = parseFloat(tick.quote);
+    }
+  }
+
+  if (data.msg_type === 'proposal') {
+    payout = data.proposal ? parseFloat(data.proposal.payout) : 0;
+    const minPayout = parseFloat(document.getElementById('payoutMin').value);
+    const payoutPct = data.proposal ? parseFloat(((data.proposal.payout / data.proposal.ask_price) - 1) * 100 + 100).toFixed(1) : 0;
+    document.getElementById('payoutVal').textContent = payoutPct + '%';
+
+    const payBadge = document.getElementById('indPayout');
+    payBadge.className = 'ind-badge ' + (parseFloat(payoutPct) >= minPayout ? 'bull' : 'bear');
+
+    if (parseFloat(payoutPct) < minPayout) {
+      log(`⚠ Payout ${payoutPct}% abaixo do mínimo (${minPayout}%). Operação cancelada.`, 'warn');
+      aguardandoResposta = false;
+      return;
+    }
+
+    // Buy contract
+    const soros = updateSoros();
+    sendWS({
+      buy: data.proposal.id,
+      price: soros.entrada
+    });
+  }
+
+  if (data.msg_type === 'buy') {
+    contractId = data.buy.contract_id;
+    const soros = updateSoros();
+    log(`🎯 ${pendingDirection === 'CALL' ? '▲ CALL' : '▼ PUT'} — Entrada: ${fmtBRL(soros.entrada)} | Nível Soros: ${sorosNivel}`, 'info');
+  }
+
+  if (data.msg_type === 'proposal_open_contract') {
+    const poc = data.proposal_open_contract;
+    if (poc.status === 'won') {
+      const profit = parseFloat(poc.profit);
+      lucroAcumuladoCiclo += profit;
+      gains++;
+      if (sorosNivel < 3) {
+        sorosNivel++;
+        log(`✅ GANHOU +${fmtBRL(profit)} — Avançando para Soros Nível ${sorosNivel}`, 'win');
+      } else {
+        banca += lucroAcumuladoCiclo;
+        ciclosCompletos++;
+        log(`🏆 CICLO COMPLETO! Lucro: +${fmtBRL(lucroAcumuladoCiclo)} | Banca: ${fmtBRL(banca)}`, 'win');
+        sorosNivel = 1;
+        lucroAcumuladoCiclo = 0;
+        ultimaSinalVela = null;
+      }
+      updateStats();
+      updateSoros();
+      aguardandoResposta = false;
+    }
+
+    if (poc.status === 'lost') {
+      const entrada1 = banca * (parseFloat(document.getElementById('pctInput').value) / 100);
+      banca -= entrada1;
+      losses++;
+      log(`❌ PERDEU -${fmtBRL(entrada1)} | Banca: ${fmtBRL(banca)}`, 'loss');
+      sorosNivel = 1;
+      lucroAcumuladoCiclo = 0;
+      ultimaSinalVela = null;
+      updateStats();
+      updateSoros();
+      aguardandoResposta = false;
+    }
+  }
+}
+
+function loadCandles() {
+  const asset = document.getElementById('assetSelect').value;
+  const tf = parseInt(document.getElementById('tfSelect').value);
+  sendWS({
+    ticks_history: asset,
+    style: 'candles',
+    granularity: tf,
+    count: 100,
+    end: 'latest'
+  });
+}
+
+function subscribeCandles() {
+  const asset = document.getElementById('assetSelect').value;
+  const tf = parseInt(document.getElementById('tfSelect').value);
+  sendWS({
+    ticks_history: asset,
+    style: 'candles',
+    granularity: tf,
+    count: 1,
+    end: 'latest',
+    subscribe: 1
+  });
+  // Also subscribe to balance
+  sendWS({ balance: 1, subscribe: 1 });
+}
+
+function executar(direction) {
+  if (aguardandoResposta) return;
+  aguardandoResposta = true;
+  pendingDirection = direction;
+  const soros = updateSoros();
+  const asset = document.getElementById('assetSelect').value;
+  const tf = parseInt(document.getElementById('tfSelect').value);
+
+  sendWS({
+    proposal: 1,
+    amount: soros.entrada,
+    basis: 'stake',
+    contract_type: direction === 'CALL' ? 'CALL' : 'PUT',
+    currency: 'USD',
+    duration: tf,
+    duration_unit: 's',
+    symbol: asset,
+    subscribe: 1
+  });
+}
+
+function startBot() {
+  isRunning = true;
+  sorosNivel = 1;
+  lucroAcumuladoCiclo = 0;
+  ultimaSinalVela = null;
+  gains = 0;
+  losses = 0;
+  ciclosCompletos = 0;
+  bancaInicial = parseFloat(document.getElementById('bancaInput').value);
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('stopBtn').style.display = 'block';
+  document.getElementById('statusBadge').textContent = '⬤ RODANDO';
+  document.getElementById('statusBadge').className = 'status-badge running';
+  log('▶ Robô iniciado! Aguardando sinal...', 'win');
+  updateSoros();
+  loadCandles();
+}
+
+function stopBot() {
+  isRunning = false;
+  document.getElementById('startBtn').style.display = 'block';
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('statusBadge').textContent = '⬤ CONECTADO';
+  document.getElementById('statusBadge').className = 'status-badge connected';
+  const lucro = banca - bancaInicial;
+  log(`⏹ Robô parado. Lucro do dia: ${lucro >= 0 ? '+' : ''}${fmtBRL(lucro)} | Gains: ${gains} | Losses: ${losses} | Ciclos: ${ciclosCompletos}`, 'warn');
+}
+
+// Live soros preview
+checkOAuthToken();
+document.getElementById('pctInput').addEventListener('input', updateSoros);
+document.getElementById('bancaInput').addEventListener('input', () => {
+  banca = parseFloat(document.getElementById('bancaInput').value) || 100;
+  bancaInicial = banca;
+  updateStats();
+  updateSoros();
+});
+</script>
+</body>
+</html>
